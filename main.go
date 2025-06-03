@@ -5,12 +5,27 @@ import (
 	"strings"
 	"bufio"
 	"os"
+	"net/http"
+	"io"
+	"encoding/json"
 )
 
 type cliCommand struct {
 	name string
 	description string
 	callback func() error
+}
+
+type locationInfo struct {
+	Name string
+	Url string
+}
+
+type LocationArea struct {
+	Count int
+	Next string
+	Previous string
+	Results []locationInfo
 }
 
 var listCommand map[string]cliCommand
@@ -35,6 +50,30 @@ func commandHelp() error {
 	return nil
 }
 
+func commandMap() error {
+	resp, err := http.Get("https://pokeapi.co/api/v2/location-area?limit=20")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+//	fmt.Println(string(body))
+	l := LocationArea{}
+	err = json.Unmarshal(body, &l)
+	if err != nil {
+		return err
+	}
+	for _ , location := range l.Results {
+		fmt.Println(location.Name)
+	}
+
+	return nil
+}
+
 func init() {
 	listCommand = map[string]cliCommand{
 		"exit": {
@@ -47,6 +86,11 @@ func init() {
 			description: "Displays a help message",
 			callback: commandHelp,
 		},
+		"map": {
+			name: "map",
+			description: "Desplays the next 20 locations",
+			callback: commandMap,
+		},
 	}
 }
 
@@ -54,7 +98,7 @@ func main(){
 	fmt.Println("Welcome to the Pokedex!")
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("Usage: ")
+		fmt.Print("Pokedex > ")
 		scanner.Scan()
 		cmd := scanner.Text()
 		if err := scanner.Err(); err != nil {
