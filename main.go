@@ -13,7 +13,7 @@ import (
 type cliCommand struct {
 	name string
 	description string
-	callback func() error
+	callback func(areaPointer *LocationArea) error
 }
 
 type locationInfo struct {
@@ -37,21 +37,28 @@ func cleanInput(text string) []string {
 	return words
 }
 
-func commandExit() error {
+func commandExit(currentArea *LocationArea) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp() error {
+func commandHelp(currentArea *LocationArea) error {
 	for _, value := range listCommand {
 		fmt.Printf("%s: %s\n", value.name, value.description)
 	}
 	return nil
 }
 
-func commandMap() error {
-	resp, err := http.Get("https://pokeapi.co/api/v2/location-area?limit=20")
+func commandMap(currentArea *LocationArea) error {
+	var url string
+	if currentArea.Next == "" {
+		url = "https://pokeapi.co/api/v2/location-area?limit=20" 
+	} else {
+		url = currentArea.Next
+	}
+
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
@@ -61,13 +68,38 @@ func commandMap() error {
 	if err != nil {
 		return err
 	}
-//	fmt.Println(string(body))
-	l := LocationArea{}
-	err = json.Unmarshal(body, &l)
+	err = json.Unmarshal(body, currentArea)
 	if err != nil {
 		return err
 	}
-	for _ , location := range l.Results {
+	for _ , location := range currentArea.Results {
+		fmt.Println(location.Name)
+	}
+
+	return nil
+}
+
+func commandMapBack(currentArea *LocationArea) error {
+	if currentArea.Previous == "" {
+		fmt.Println("you're on the first page")
+		return nil
+	}
+	
+	resp, err := http.Get(currentArea.Previous)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(body, currentArea)
+	if err != nil {
+		return err
+	}
+	for _ , location := range currentArea.Results {
 		fmt.Println(location.Name)
 	}
 
@@ -88,13 +120,20 @@ func init() {
 		},
 		"map": {
 			name: "map",
-			description: "Desplays the next 20 locations",
+			description: "Displays the next 20 locations",
 			callback: commandMap,
+		},
+		"mapb": {
+			name: "map back",
+			description: "Displays the previous 20 locations",
+			callback: commandMapBack,
 		},
 	}
 }
 
 func main(){
+	l := LocationArea{}
+	var locationPointer *LocationArea = &l
 	fmt.Println("Welcome to the Pokedex!")
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
@@ -105,7 +144,7 @@ func main(){
 			fmt.Printf("Invalid input: %s", err)
 		}
 		if value, ok := listCommand[cmd]; ok {
-			if err := value.callback(); err != nil {
+			if err := value.callback(locationPointer); err != nil {
 				fmt.Println(err)
 			}
 			} else {
