@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"io"
 	"encoding/json"
+	"github.com/rafael0rueda/pokedexcli/internal/pokecache"
 )
 
 type cliCommand struct {
@@ -135,6 +136,7 @@ func main(){
 	l := LocationArea{}
 	var locationPointer *LocationArea = &l
 	fmt.Println("Welcome to the Pokedex!")
+	pokecache.ShowTime()
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("Pokedex > ")
